@@ -1,0 +1,99 @@
+version: 2.1
+
+description: |
+  Easily install and use the Warden CLI on CircleCI. Warden is a CLI by
+  RepoWarden designed to audit your git repositories based on policy.
+
+  Currently supports Linux and macOS on amd64 and arm64.
+
+display:
+  home_url: "https://circleci.com/developer/orbs/orb/repowarden/warden"
+  source_url: "https://github.com/repowarden/orb"
+
+orbs:
+  ci: hubci/sphere@0.1
+  go: circleci/go@1.7
+
+executors:
+  cimg:
+    docker:
+      - image: cimg/base:2023.01
+  linux:
+    machine:
+      image: ubuntu-2204:2022.10.1
+  mac:
+    macos:
+      xcode: 13.0.0
+
+commands:
+  install:
+    description: |
+      Install Warden in a job. This command supports Linux and macOS on both amd64 and arm64. Installs to ~/bin.
+    parameters:
+      version:
+        description: The Warden version. This is a full SemVer version.
+        type: string
+    steps:
+      - ci/init
+      - run:
+          name: "Install Warden"
+          command: |
+            # Ensures the directory we need exist.
+            # Assuming this path is in PATH should move to hubci/sphere at some point.
+            mkdir -p ~/bin
+
+            # Get the CPU arch. This will also move to hubci/sphere in the future
+            cpuArch=$( uname -m )
+
+            # set the OS name for the asset URL
+            case $OSD_FAMILY in
+              linux)
+                osName="Linux"
+                installPath=~/bin
+                ;;
+              darwin)
+                osName="Darwin"
+                # this is done because CCI mac images don't have ~/bin in PATH
+                installPath=/usr/local/bin
+                ;;
+              *)
+                echo "Unsupported Operating System"
+                exit 1
+                ;;
+            esac
+
+            dlURL="https://github.com/repowarden/cli/releases/download/v<<parameters.version>>/warden_${osName}_${cpuArch}.tar.gz"
+            curl -sSL $dlURL | $SUDO tar -xz -C ${installPath} warden
+
+jobs:
+  audit:
+    parameters:
+      version:
+        description: The Warden version. This is a full SemVer version.
+        type: string
+      image:
+        description: |
+          Which image/executor technology to run with. Check the executors
+          shipped with this orb for possible values. Defaults to "cimg"
+          which uses the `cimg/base` Convenience Image.
+        type: enum
+        enum:
+          - cimg
+          - linux
+          - mac
+        default: cimg
+      config:
+        description: Path to the Warden file.
+        type: string
+        default: ./warden.yml
+    executor:
+      name: << parameters.image >>
+    description: Run a Warden audit.
+    steps:
+      - checkout
+      - install:
+          version: << parameters.version >>
+      - run:
+          name: "Run an audit"
+          command: |
+            warden audit
