@@ -26,4 +26,4 @@ New versions of this orb are published by pushing a SemVer git tag.
 
 
 
-[reg-page]: https://circleci.com/orbs/registry/orb/repowarden/warden
+[reg-page]: https://circleci.com/developer/orbs/orb/repowarden/warden
