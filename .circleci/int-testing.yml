@@ -1,0 +1,45 @@
+version: 2.1
+
+filters: &filters
+  tags:
+    only: /.*/
+
+orbs:
+  orb-tools: circleci/orb-tools@11.5
+  orb: repowarden/warden@dev:<<pipeline.git.revision>>
+
+workflows:
+  int-testing-wf:
+    jobs:
+      - int-test-install:
+          version: "0.1.0"
+          filters: *filters
+      - orb-tools/pack:
+          filters: *filters
+      - orb-tools/publish:
+          orb-name: repowarden/warden
+          vcs-type: << pipeline.project.type >>
+          pub-type: production
+          requires:
+            - orb-tools/pack
+            - int-test-install
+          context: circleci-ctx
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              only: /^v[0-9]+\.[0-9]+\.[0-9]+$/
+
+jobs:
+  int-test-install:
+    parameters:
+      version:
+        type: string
+    docker:
+      - image: cimg/base:2023.01
+    steps:
+      - orb/install:
+          version: << parameters.version >>
+      - run:
+          name: "Try running Warden"
+          command: warden --version

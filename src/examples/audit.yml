@@ -1,0 +1,12 @@
+description: "Here's how you would run an audit with Warden on CircleCI."
+
+usage:
+  version: 2.1
+
+  orbs:
+    warden: repowarden/warden@x.7
+
+  workflows:
+    main-wf:
+      jobs:
+        - warden/audit
