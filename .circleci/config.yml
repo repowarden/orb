@@ -1,108 +1,36 @@
 version: 2.1
-
-parameters:
-  dev-orb-version:
-    type: string
-    default: "dev:testing"
-  run-integration-tests:
-    type: boolean
-    default: false
-
+setup: true
 orbs:
-  orb: repowarden/warden@<< pipeline.parameters.dev-orb-version >>
-  orb-tools: circleci/orb-tools@10.1
+  orb-tools: circleci/orb-tools@11.5
+  shellcheck: circleci/shellcheck@3.1
 
-executors:
-  cimg:
-    docker:
-      - image: cimg/base:2023.01
-  linux:
-    machine:
-      image: ubuntu-2204:2022.10.1
-  mac:
-    macos:
-      xcode: 13.0.0
+filters: &filters
+  tags:
+    only: /.*/
 
 workflows:
   main-wf:
-    when:
-      not:
-        or:
-          - equal: [ scheduled_pipeline, << pipeline.trigger_source >> ]
-          - << pipeline.parameters.run-integration-tests >>
     jobs:
-      - orb-tools/lint
-      - orb-tools/publish-dev:
+      - orb-tools/pack:
+          filters: *filters
+      - orb-tools/review:
+          exclude: "RC009"
+          filters: *filters
+      - shellcheck/check:
+          filters: *filters
+      - orb-tools/publish:
           orb-name: repowarden/warden
-          alpha-version-ref: "dev:testing"
-          checkout: true
-          attach-workspace: false
-          orb-path: orb.yml
+          vcs-type: << pipeline.project.type >>
           requires:
-            - orb-tools/lint
+            - orb-tools/review
+            - orb-tools/pack
+            - shellcheck/check
           context: circleci-ctx
-      - orb-tools/trigger-integration-tests-workflow:
-          name: trigger-integration-dev
-          context: circleci-ctx
+          filters: *filters
+      - orb-tools/continue:
+          pipeline-number: << pipeline.number >>
+          vcs-type: << pipeline.project.type >>
+          config-path: ".circleci/int-testing.yml"
           requires:
-            - orb-tools/publish-dev
-  integration-test_deploy:
-    when: << pipeline.parameters.run-integration-tests >>
-    jobs:
-      - integration-test-install:
-          matrix:
-            parameters:
-              runner:
-                - cimg
-                - linux
-                - mac
-      - orb/audit:
-          matrix:
-            parameters:
-              image:
-                - cimg
-                - linux
-                - mac
-              version:
-                - "0.1.0"
-      - orb-tools/dev-promote-prod-from-commit-subject:
-          orb-name: repowarden/warden
-          add-pr-comment: true
-          fail-if-semver-not-indicated: true
-          publish-version-tag: true
-          requires:
-            - integration-test-install
-            - orb/audit
-            - config-test
-          filters:
-            branches:
-              only: trunk
-          context: circleci-ctx
-  weekly-cron-wf:
-    when:
-      and:
-        - equal: [ scheduled_pipeline, << pipeline.trigger_source >> ]
-    jobs:
-      - orb-tools/publish-dev:
-          orb-name: repowarden/warden
-          alpha-version-ref: "dev:testing"
-          checkout: true
-          attach-workspace: false
-          orb-path: orb.yml
-          requires:
-            - orb-tools/lint
-          context: circleci-ctx
-
-
-jobs:
-  integration-test-install:
-    parameters:
-      runner:
-        type: executor
-    executor: <<parameters.runner>>
-    steps:
-      - orb/install:
-          version: "0.1.0"
-      - run:
-          name: "Try running Warden"
-          command: warden --version
+            - orb-tools/publish
+          filters: *filters
