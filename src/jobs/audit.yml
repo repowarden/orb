@@ -22,6 +22,11 @@ docker:
 
 steps:
   - checkout
+  - run:
+      name: "Populate any submodules"
+      command: |
+        git submodule sync
+        git submodule update --init
   - install:
       version: << parameters.version >>
   - run:
