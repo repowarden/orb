@@ -20,6 +20,10 @@ parameters:
     description: Should the job run CircleCI's checkout step?
     type: boolean
     default: true
+  children:
+    description: Whether or not to include children groups.
+    type: boolean
+    default: true
 
 docker:
   - image: cimg/base:2023.01
@@ -39,4 +43,4 @@ steps:
   - run:
       name: "Run an audit"
       command: |
-        warden audit --group=<< parameters.group >> --repositoriesFile=<< parameters.repositoriesFile >> --policyFile=<< parameters.policyFile >>
+        warden audit --group=<< parameters.group >> --children=<< parameters.children >> --repositoriesFile=<< parameters.repositoriesFile >> --policyFile=<< parameters.policyFile >>
