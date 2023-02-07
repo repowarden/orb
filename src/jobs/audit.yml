@@ -16,17 +16,24 @@ parameters:
     description: Path to the policy.yml file.
     type: string
     default: ./policy.yml
+  checkout:
+    description: Should the job run CircleCI's checkout step?
+    type: boolean
+    default: true
 
 docker:
   - image: cimg/base:2023.01
 
 steps:
-  - checkout
-  - run:
-      name: "Populate any submodules"
-      command: |
-        git submodule sync
-        git submodule update --init
+  - when:
+      condition: << parameters.checkout >>
+      steps:
+        - checkout
+        - run:
+            name: "Populate any submodules"
+            command: |
+              git submodule sync
+              git submodule update --init
   - install:
       version: << parameters.version >>
   - run:
